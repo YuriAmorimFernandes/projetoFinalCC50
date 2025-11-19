@@ -1,0 +1,686 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <unistd.h> // Para usleep (pausas)
+#include <ncurses.h> // Biblioteca de manipulação de terminal
+
+// --- Constantes Globais ---
+#define MAX_RANQUE 5
+#define MAX_NOME 6 
+#define NUM_PALAVRAS 100
+#define MAX_PALAVRAS_SIMULTANEAS 10
+#define VIDAS_INICIAIS 5
+
+// Tempo base fixo para queda de 1 linha.
+#define TEMPO_BASE_QUEDA_MS 250 // 0.25 segundos por linha
+
+// --- Estruturas de Dados ---
+typedef struct {
+    char nome[MAX_NOME];
+    int pontuacao;
+} Recorde;
+
+typedef struct {
+    char *palavra;       
+    int y_pos;           
+    int x_pos;           
+    int progresso;       
+    int ativa;           
+} PalavraCaindo;
+
+// Ranques e Palavras Ativas
+Recorde ranque_facil[MAX_RANQUE];
+Recorde ranque_medio[MAX_RANQUE];
+Recorde ranque_dificil[MAX_RANQUE];
+PalavraCaindo palavras_ativas[MAX_PALAVRAS_SIMULTANEAS];
+
+// --- Lista de 100 Palavras (Português Brasil - Sem acentos para simplificar a entrada em C/ncurses) ---
+const char *PALAVRAS[NUM_PALAVRAS] = {
+    "amor", "fato", "vies", "voce", "mito", "como", "caos", "esmo", "brio", "acao",
+    "vida", "casa", "medo", "saga", "onus", "auge", "sina", "vovo", "ermo", "mais",
+    "alem", "pela", "mote", "tolo", "urge", "coragem", "liberdade", "empatia", "etica", "virtude",
+    "sucesso", "sentido", "origem", "historia", "cultura", "codigo", "projeto", "sistema", "erro", "teste",
+    "teoria", "pratica", "ideia", "missao", "desafio", "solucao", "ambiente", "recurso", "trabalho", "inovacao",
+    "harmonia", "confianca", "tolerancia", "democracia", "igualdade", "paciencia", "felicidade", "destino", "equidade", "transformar",
+    "mudanca", "sabedoria", "conhecer", "intencao", "otimismo", "realidade", "espirito", "caminho", "foco", "meta",
+    "progresso", "esforco", "objetivo", "reflexao", "responsavel", "respeito", "duvida", "sintaxe", "algoritmo", "variavel",
+    "funcao", "estrutura", "ponteiro", "memoria", "compilar", "terminal", "processo", "desenho", "interface", "conexao",
+    "efemero", "imprevisto", "genuino", "sublime", "ancestral", "presenca", "estigma", "astucia", "audacia", "fraternidade"
+};
+
+// --- Protótipos das Funções ---
+void inicializar_ranques(Recorde ranque[]);
+void carregar_ranques();
+void salvar_ranques();
+void menu_principal();
+int menu_ncurses(const char *opcoes[], int num_opcoes, int start_y, int start_x); 
+void menu_jogar();
+void menu_ranque();
+void spawn_palavra(int index, int max_x);
+void jogar_facil();
+void atualizar_ranque(Recorde ranque[], int nova_pontuacao, const char *modo_nome);
+void mostrar_ranque(Recorde ranque[], const char *modo);
+
+// --- Função Principal ---
+int main() {
+    srand(time(NULL));
+
+    inicializar_ranques(ranque_facil);
+    inicializar_ranques(ranque_medio);
+    inicializar_ranques(ranque_dificil);
+    carregar_ranques();
+
+    // Inicialização NCURSES para o menu principal
+    initscr();
+    cbreak();
+    noecho();
+    curs_set(0);
+    keypad(stdscr, TRUE);
+
+    if (has_colors()) {
+        start_color();
+        init_pair(1, COLOR_GREEN, COLOR_BLACK);  // Verde (Parte digitada)
+        init_pair(2, COLOR_RED, COLOR_BLACK);    // Vermelho (Perda de vida)
+        
+        
+        init_pair(3, COLOR_YELLOW, COLOR_BLACK); // Título/Banner (Amarelo)
+        init_pair(4, COLOR_YELLOW, COLOR_BLACK); // Selecionado (Amarelo)
+        
+        init_pair(5, COLOR_WHITE, COLOR_BLACK);  // Opção Normal (Branco)
+    }
+    
+    mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, NULL);
+
+    menu_principal();
+
+    endwin(); 
+    salvar_ranques();
+
+    return 0;
+}
+
+// ----------------------------------------------------------------------
+// Implementação: Menus de Interface (usando NCURSES)
+// ----------------------------------------------------------------------
+
+void menu_principal() {
+    const char *opcoes[] = {
+        "1. Jogar", 
+        "2. Ranque", 
+        "3. Sair"
+    };
+    int escolha;
+    int max_y, max_x;
+    getmaxyx(stdscr, max_y, max_x);
+    
+    do {
+        erase();
+        
+        // Desenha o Título - Agora usando COLOR_PAIR(3) que é AMARELO
+        attron(COLOR_PAIR(3) | A_BOLD);
+        mvprintw(2, max_x / 2 - 20, "===========================================");
+        mvprintw(3, max_x / 2 - 20, " (Jogo da Digitacao)-Yuri Amorim Fernandes"); 
+        mvprintw(4, max_x / 2 - 20, "===========================================");
+        attroff(COLOR_PAIR(3) | A_BOLD);
+
+        escolha = menu_ncurses(opcoes, 3, 7, max_x / 2 - 10);
+        
+        switch (escolha) {
+            case 0: // Jogar
+                menu_jogar();
+                break;
+            case 1: // Ranque
+                menu_ranque();
+                break;
+            case 2: // Sair
+                return;
+            default:
+                break;
+        }
+    } while (1);
+}
+
+// Menu com suporte a Mouse e Estética Aprimorada
+int menu_ncurses(const char *opcoes[], int num_opcoes, int start_y, int start_x) {
+    int selecionado = 0;
+    int ch;
+    
+    while (1) {
+        
+        for (int i = 0; i < num_opcoes; i++) {
+            int y = start_y + i * 3;
+            int x = start_x;
+            int width = 20;
+
+            if (i == selecionado) {
+                // Seleção em Amarelo/Dourado em negrito
+                attron(COLOR_PAIR(4) | A_BOLD); 
+            } else {
+                // Opção normal em Branco
+                attron(COLOR_PAIR(5));
+            }
+
+            // Desenha a "caixa" (borda simples)
+            mvaddch(y - 1, x - 1, ACS_ULCORNER);
+            mvaddch(y - 1, x + width, ACS_URCORNER);
+            mvaddch(y + 1, x - 1, ACS_LLCORNER);
+            mvaddch(y + 1, x + width, ACS_LRCORNER);
+            mvhline(y - 1, x, ACS_HLINE, width);
+            mvhline(y + 1, x, ACS_HLINE, width);
+            mvaddch(y, x - 1, ACS_VLINE);
+            mvaddch(y, x + width, ACS_VLINE);
+
+            // Desenha o texto centralizado na caixa
+            mvprintw(y, x + (width - strlen(opcoes[i])) / 2, "%s", opcoes[i]);
+
+            if (i == selecionado) {
+                attroff(COLOR_PAIR(4) | A_BOLD);
+            } else {
+                attroff(COLOR_PAIR(5));
+            }
+        }
+
+        refresh();
+
+        ch = getch();
+
+        switch (ch) {
+            case KEY_UP:
+                selecionado = (selecionado - 1 + num_opcoes) % num_opcoes;
+                break;
+            case KEY_DOWN:
+                selecionado = (selecionado + 1) % num_opcoes;
+                break;
+            case 10: // ENTER
+                return selecionado;
+            case KEY_MOUSE: {
+                MEVENT event;
+                if (getmouse(&event) == OK) {
+                    if (event.bstate & BUTTON1_CLICKED) {
+                        for (int i = 0; i < num_opcoes; i++) {
+                            int y_min = start_y + i * 3 - 1;
+                            int y_max = start_y + i * 3 + 1;
+                            int x_min = start_x - 1;
+                            int x_max = start_x + 20; 
+                            
+                            if (event.y >= y_min && event.y <= y_max && 
+                                event.x >= x_min && event.x <= x_max) {
+                                return i;
+                            }
+                        }
+                    }
+                }
+                break;
+            }
+        }
+    }
+}
+
+
+void menu_jogar() {
+    const char *opcoes[] = {
+        "1. Facil",             
+        "2. Medio (Indisponivel)",    
+        "3. Dificil (Indisponivel)", 
+        "4. Voltar"
+    };
+    int escolha;
+    int max_y, max_x;
+    getmaxyx(stdscr, max_y, max_x);
+    
+    do {
+        erase();
+        // Título "Selecione a Dificuldade" também em Amarelo/Dourado
+        attron(COLOR_PAIR(3) | A_BOLD);
+        mvprintw(2, max_x / 2 - 13, "Selecione a Dificuldade"); 
+        attroff(COLOR_PAIR(3) | A_BOLD);
+        
+        escolha = menu_ncurses(opcoes, 4, 5, max_x / 2 - 10);
+        
+        if (escolha == 0) { 
+            jogar_facil();
+            return;
+        } else if (escolha == 3) { 
+            return;
+        } else if (escolha == 1 || escolha == 2) { 
+            mvprintw(max_y - 2, 1, "Modo em desenvolvimento! Pressione qualquer tecla...");
+            refresh();
+            getch();
+        }
+        
+    } while (1);
+}
+
+void menu_ranque() {
+    const char *opcoes[] = {
+        "1. Ranque Facil", 
+        "2. Ranque Medio", 
+        "3. Ranque Dificil",
+        "4. Voltar"
+    };
+    int escolha;
+    int max_y, max_x;
+    getmaxyx(stdscr, max_y, max_x);
+    
+    do {
+        erase();
+        // Título "Ranques de Pontuacao" também em Amarelo/Dourado
+        attron(COLOR_PAIR(3) | A_BOLD);
+        mvprintw(2, max_x / 2 - 13, "Ranques de Pontuacao"); 
+        attroff(COLOR_PAIR(3) | A_BOLD);
+        
+        escolha = menu_ncurses(opcoes, 4, 5, max_x / 2 - 10);
+        
+        // Temporariamente desativa mouse e ncurses para usar I/O padrão na exibição da tabela
+        mousemask(0, NULL);
+        endwin(); 
+        
+        switch (escolha) {
+            case 0: // Ranque Fácil
+                mostrar_ranque(ranque_facil, "FACIL");
+                break;
+            case 1: // Ranque Médio
+                mostrar_ranque(ranque_medio, "MEDIO");
+                break;
+            case 2: // Ranque Difícil
+                mostrar_ranque(ranque_dificil, "DIFICIL");
+                break;
+            case 3: // Voltar
+                // A reinicialização será feita logo abaixo do switch
+                break;
+            default:
+                break;
+        }
+
+        // Reinicia ncurses e mouse após I/O padrão
+        initscr();
+        cbreak();
+        noecho();
+        curs_set(0);
+        keypad(stdscr, TRUE);
+        
+        // Reativa o mouse para continuar usando o menu NCURSES
+        mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, NULL);
+        
+        if (has_colors()) {
+             start_color();
+             // Reinit colors to prevent issues
+             init_pair(1, COLOR_GREEN, COLOR_BLACK);
+             init_pair(2, COLOR_RED, COLOR_BLACK);
+             
+             // Reinit colors for title and selection as well
+             init_pair(3, COLOR_YELLOW, COLOR_BLACK); // Título/Banner
+             init_pair(4, COLOR_YELLOW, COLOR_BLACK); // Selecionado
+             
+             init_pair(5, COLOR_WHITE, COLOR_BLACK);  // Normal
+        }
+        
+        if (escolha == 3) {
+            return;
+        }
+        
+    } while (1);
+}
+
+
+
+void spawn_palavra(int index, int max_x) {
+    if (palavras_ativas[index].ativa == 0) {
+        int idx_palavra = rand() % NUM_PALAVRAS;
+        palavras_ativas[index].palavra = (char *)PALAVRAS[idx_palavra];
+        palavras_ativas[index].y_pos = 1;
+
+        int p_len = strlen(palavras_ativas[index].palavra);
+        palavras_ativas[index].x_pos = 1 + rand() % (max_x - p_len - 2);
+
+        palavras_ativas[index].progresso = 0;
+        palavras_ativas[index].ativa = 1;
+    }
+}
+
+void jogar_facil() {
+    int vidas = VIDAS_INICIAIS;
+    long long pontuacao = 0;
+    int max_y, max_x;
+    getmaxyx(stdscr, max_y, max_x);
+
+    // Desativa o mouse para o jogo
+    timeout(0);
+    mousemask(0, NULL);
+    
+    // --- CÁLCULO DE VELOCIDADE DE QUEDA ---
+    double tempo_queda_ms = TEMPO_BASE_QUEDA_MS; // 250 ms
+    
+    // Variáveis de spawn
+    double tempo_spawn_s = 10.0;
+    const double limite_spawn_s = 2.0; 
+    const double SPAWN_VAZIO_S = 1.5;
+
+    // Começa com 1 palavra simultânea
+    int palavras_simultaneas = 1; 
+    
+    // Limite máximo de palavras ativas no Modo Fácil
+    const int MAX_PALAVRAS_FACIL = 6; 
+    
+    // Variável para controlar o ponto de gatilho do aumento de palavras (a cada 15000)
+    long long proximo_multi_spawn = 15000; 
+    
+    // Variável para controlar o ponto de gatilho da redução de spawn (a cada 1000)
+    long long proxima_reducao_spawn = 1000; 
+
+    // Variáveis de Controle de Tempo
+    clock_t ultima_queda = clock();
+    clock_t ultimo_spawn = clock();
+
+    // Variável de Entrada
+    char buffer_entrada[50] = "";
+    int buffer_len = 0;
+
+    // Inicializa o array de palavras
+    for (int i = 0; i < MAX_PALAVRAS_SIMULTANEAS; i++) {
+        palavras_ativas[i].ativa = 0;
+    }
+    
+    // SPAWN INICIAL ÚNICO
+    spawn_palavra(0, max_x);
+
+    // --- Loop Principal do Jogo ---
+    while (vidas > 0) {
+
+        // 1. Limpa a tela
+        erase();
+
+        // 2. Exibe o HUD (Status)
+        mvprintw(0, 1, "Vidas: %d | Pontos: %lld | Queda/Linha: %.2fs | Spawn: %.1fs | Multi: %d",
+                 vidas, pontuacao, tempo_queda_ms / 1000.0, tempo_spawn_s, palavras_simultaneas);
+        mvprintw(max_y - 2, 1, "-------------------------------------------------");
+
+        // Exibir a entrada do usuário
+        mvprintw(max_y - 1, 1, "Digite: %s", buffer_entrada);
+
+        // 3. Controle de Queda e Perda de Vida
+        clock_t agora = clock();
+        double tempo_passado_ms = (double)(agora - ultima_queda) * 1000.0 / CLOCKS_PER_SEC;
+
+        if (tempo_passado_ms >= tempo_queda_ms) {
+            ultima_queda = agora;
+            for (int i = 0; i < palavras_simultaneas; i++) {
+                if (palavras_ativas[i].ativa) {
+                    palavras_ativas[i].y_pos++;
+
+                    // Condição de Perda de Vida
+                    if (palavras_ativas[i].y_pos >= max_y - 2) {
+                        vidas--;
+                        
+                        // Desenha a palavra que caiu em vermelho
+                         if (has_colors()) {
+                            attron(COLOR_PAIR(2));
+                            mvprintw(max_y - 3, 1, "❌ PERDEU! Palavra '%s' caiu.", palavras_ativas[i].palavra);
+                            attroff(COLOR_PAIR(2));
+                        }
+                        
+                        palavras_ativas[i].ativa = 0;
+                        
+                        // SPAWN IMEDIATO APÓS PERDA (garante que o slot seja preenchido)
+                        if (vidas > 0) {
+                             spawn_palavra(i, max_x);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 4. Controle de Spawn de Novas Palavras (Timer)
+        double tempo_spawn_passado_s = (double)(agora - ultimo_spawn) / CLOCKS_PER_SEC;
+
+        int slots_vazios = 0;
+        for (int i = 0; i < palavras_simultaneas; i++) {
+            if (palavras_ativas[i].ativa == 0) {
+                slots_vazios++;
+            }
+        }
+
+        double spawn_intervalo = tempo_spawn_s;
+        
+        // Diminui o tempo de spawn para 1.5s se não houver palavras ativas (Spawn rápido de recuperação)
+        if (slots_vazios == palavras_simultaneas) {
+            spawn_intervalo = SPAWN_VAZIO_S;
+        }
+
+
+        if (tempo_spawn_passado_s >= spawn_intervalo) {
+            ultimo_spawn = agora;
+            for (int i = 0; i < palavras_simultaneas; i++) {
+                if (palavras_ativas[i].ativa == 0) {
+                    spawn_palavra(i, max_x);
+                    break;
+                }
+            }
+        }
+
+        // 5. Desenha as Palavras Ativas (Com Animação/Realce)
+        for (int i = 0; i < palavras_simultaneas; i++) {
+            if (palavras_ativas[i].ativa) {
+                int start_x = palavras_ativas[i].x_pos;
+                int start_y = palavras_ativas[i].y_pos;
+                char *palavra = palavras_ativas[i].palavra;
+
+                int progresso = 0;
+
+                if (strncmp(buffer_entrada, palavra, buffer_len) == 0 && buffer_len > 0) {
+                    progresso = buffer_len;
+                }
+
+                if (progresso > 0 && has_colors()) {
+                    attron(COLOR_PAIR(1));
+                    mvprintw(start_y, start_x, "%.*s", progresso, palavra);
+                    attroff(COLOR_PAIR(1));
+                }
+
+                mvprintw(start_y, start_x + progresso, "%s", palavra + progresso);
+            }
+        }
+
+        // 6. Entrada do Usuário (Non-blocking)
+        int ch = getch();
+        if (ch != ERR) {
+            if (ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z') {
+                if (buffer_len < 49) {
+                    buffer_entrada[buffer_len++] = (char)ch;
+                    buffer_entrada[buffer_len] = '\0';
+                }
+
+                for (int i = 0; i < palavras_simultaneas; i++) {
+                    if (palavras_ativas[i].ativa) {
+                        if (strcmp(buffer_entrada, palavras_ativas[i].palavra) == 0) {
+
+                            int len = strlen(palavras_ativas[i].palavra);
+                            pontuacao += len * 200; 
+
+                            // --- REGRAS DE DIFICULDADE (ACELERAÇÃO E MULTI-PALAVRA) ---
+                            
+                            // Aceleração Infinita: Reduz 20ms a cada 100 pontos.
+                            if (pontuacao > 0 && pontuacao % 100 == 0) {
+                                tempo_queda_ms -= 20.0;
+                                if (tempo_queda_ms < 10.0) tempo_queda_ms = 10.0; 
+                            }
+                            
+                            // Aumenta o número de palavras E SPAWN INSTANTÂNEO
+                            if (pontuacao >= proximo_multi_spawn && palavras_simultaneas < MAX_PALAVRAS_FACIL) {
+                                palavras_simultaneas++;
+                                proximo_multi_spawn += 15000; // Define o próximo gatilho
+                                
+                                // SPAWN INSTANTÂNEO da nova palavra
+                                spawn_palavra(palavras_simultaneas - 1, max_x); 
+                            }
+
+                            // Aumenta o Spawn Timer (frequência) a cada 1000 pontos.
+                            if (pontuacao >= proxima_reducao_spawn && tempo_spawn_s > limite_spawn_s) {
+                                tempo_spawn_s -= 1.0;
+                                proxima_reducao_spawn += 1000; // Define o próximo gatilho
+                            }
+                            // ---------------------------------------------
+
+                            palavras_ativas[i].ativa = 0;
+                            buffer_len = 0;
+                            buffer_entrada[0] = '\0';
+                            
+                            // SPAWN INSTANTÂNEO na posição da palavra digitada
+                            spawn_palavra(i, max_x);
+                            
+                            break;
+                        }
+                    }
+                }
+
+            } else if (ch == 127 || ch == KEY_BACKSPACE || ch == '\b') {
+                if (buffer_len > 0) {
+                    buffer_entrada[--buffer_len] = '\0';
+                }
+            } else if (ch == ' ' || ch == '\n') {
+                buffer_len = 0;
+                buffer_entrada[0] = '\0';
+            }
+        }
+
+        refresh();
+        usleep(10000); 
+    }
+
+    // Fim do Jogo
+    erase();
+    mvprintw(max_y / 2 - 2, max_x / 2 - 15, "================================");
+    mvprintw(max_y / 2 - 1, max_x / 2 - 15, "        GAME OVER (FIM DE JOGO)       ");
+    mvprintw(max_y / 2, max_x / 2 - 15, "================================");
+    mvprintw(max_y / 2 + 1, max_x / 2 - 10, "Pontuação Final: %lld", pontuacao);
+
+    refresh();
+    sleep(2);
+    
+    timeout(-1);
+    mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, NULL);
+
+    endwin();
+    atualizar_ranque(ranque_facil, (int)pontuacao, "FACIL");
+    
+    printf("\nPressione ENTER para voltar ao menu...");
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF);
+    getchar();
+    
+    initscr();
+    cbreak();
+    noecho();
+    curs_set(0);
+    keypad(stdscr, TRUE);
+    mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, NULL);
+}
+
+void inicializar_ranques(Recorde ranque[]) {
+    for (int i = 0; i < MAX_RANQUE; i++) {
+        strcpy(ranque[i].nome, "#####");
+        ranque[i].pontuacao = 0;
+    }
+}
+
+void carregar_ranques() {
+    FILE *fp;
+
+    fp = fopen("ranque_facil.bin", "rb");
+    if (fp != NULL) {
+        fread(ranque_facil, sizeof(Recorde), MAX_RANQUE, fp);
+        fclose(fp);
+    }
+
+    fp = fopen("ranque_medio.bin", "rb");
+    if (fp != NULL) {
+        fread(ranque_medio, sizeof(Recorde), MAX_RANQUE, fp);
+        fclose(fp);
+    }
+
+    fp = fopen("ranque_dificil.bin", "rb");
+    if (fp != NULL) {
+        fread(ranque_dificil, sizeof(Recorde), MAX_RANQUE, fp);
+        fclose(fp);
+    }
+}
+
+void salvar_ranques() {
+    FILE *fp;
+
+    fp = fopen("ranque_facil.bin", "wb");
+    if (fp != NULL) {
+        fwrite(ranque_facil, sizeof(Recorde), MAX_RANQUE, fp);
+        fclose(fp);
+    }
+
+    fp = fopen("ranque_medio.bin", "wb");
+    if (fp != NULL) {
+        fwrite(ranque_medio, sizeof(Recorde), MAX_RANQUE, fp);
+        fclose(fp);
+    }
+
+    fp = fopen("ranque_dificil.bin", "wb");
+    if (fp != NULL) {
+        fwrite(ranque_dificil, sizeof(Recorde), MAX_RANQUE, fp);
+        fclose(fp);
+    }
+}
+
+void atualizar_ranque(Recorde ranque[], int nova_pontuacao, const char *modo_nome) {
+    if (nova_pontuacao <= ranque[MAX_RANQUE - 1].pontuacao) {
+        printf("\nVocê não entrou no Top 5 do Modo %s.\n", modo_nome);
+        return;
+    }
+
+    char nome_temp[MAX_NOME];
+
+    printf("\n🎉 NOVO RECORDE! Você está no TOP 5 do Modo %s!\n", modo_nome);
+    printf("Digite seu nome (até 5 caracteres): ");
+
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF);
+
+    fgets(nome_temp, MAX_NOME, stdin);
+    nome_temp[strcspn(nome_temp, "\n")] = 0;
+
+    if (strlen(nome_temp) > 5) {
+        nome_temp[5] = '\0';
+    }
+
+    strcpy(ranque[MAX_RANQUE - 1].nome, nome_temp);
+    ranque[MAX_RANQUE - 1].pontuacao = nova_pontuacao;
+
+    for (int i = 0; i < MAX_RANQUE - 1; i++) {
+        for (int j = 0; j < MAX_RANQUE - 1 - i; j++) {
+            if (ranque[j].pontuacao < ranque[j + 1].pontuacao) {
+                Recorde temp = ranque[j];
+                ranque[j] = ranque[j + 1];
+                ranque[j + 1] = temp;
+            }
+        }
+    }
+
+    printf("\n✅ Recorde salvo com sucesso!\n");
+}
+
+void mostrar_ranque(Recorde ranque[], const char *modo) {
+    system("clear || cls");
+    printf("==============================\n");
+    printf("📊 RANQUE: MODO %s\n", modo);
+    printf("==============================\n");
+    printf("Pos | Nome | Pontuação\n");
+    printf("----|------|----------\n");
+
+    for (int i = 0; i < MAX_RANQUE; i++) {
+        printf("%2d. | %-4s | %d\n", i + 1, ranque[i].nome, ranque[i].pontuacao);
+    }
+
+    printf("------------------------------\n");
+    printf("\nPressione ENTER para voltar...");
+
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF);
+    getchar();
+}

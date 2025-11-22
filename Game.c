@@ -1,10 +1,11 @@
+//https://youtu.be/g-QjaX4PUzw link do video do projeto
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>   // Para usleep (pausas)
-#include <ncurses.h>  // Biblioteca de manipulação de terminal
+#include <ncurses.h>  // Biblioteca de manipulaÃ§Ã£o de terminal
 
 // --- Constantes Globais ---
 #define MAX_RANQUE 5
@@ -13,7 +14,7 @@
 #define MAX_PALAVRAS_SIMULTANEAS 10
 #define VIDAS_INICIAIS 5
 
-// Definição de Tempo (em milissegundos simulados)
+// DefiniÃ§Ã£o de Tempo (em milissegundos simulados)
 // 625ms (inicialmente 1 linha a cada 0.625s) -> 15s para cair 24 linhas
 #define TEMPO_BASE_QUEDA_MS 625
 
@@ -25,9 +26,9 @@ typedef struct {
 
 typedef struct {
     char *palavra;     // Palavra atual a ser digitada
-    int y_pos;         // Posição vertical (linha)
-    int x_pos;         // Posição horizontal (coluna)
-    int progresso;     // Quantos caracteres já foram digitados (0 a N)
+    int y_pos;         // PosiÃ§Ã£o vertical (linha)
+    int x_pos;         // PosiÃ§Ã£o horizontal (coluna)
+    int progresso;     // Quantos caracteres jÃ¡ foram digitados (0 a N)
     int ativa;         // 1: Caindo; 0: Inativa/Digitada
 } PalavraCaindo;
 
@@ -37,21 +38,21 @@ Recorde ranque_medio[MAX_RANQUE];
 Recorde ranque_dificil[MAX_RANQUE];
 PalavraCaindo palavras_ativas[MAX_PALAVRAS_SIMULTANEAS];
 
-// --- Lista de 100 Palavras (Português Brasil) ---
+// --- Lista de 100 Palavras (PortuguÃªs Brasil) ---
 const char *PALAVRAS[NUM_PALAVRAS] = {
-    "amor", "fato", "viés", "você", "mito", "como", "caos", "esmo", "brio", "ação",
-    "vida", "casa", "medo", "saga", "ônus", "auge", "sina", "vovó", "ermo", "mais",
-    "além", "pela", "mote", "tolo", "urge", "coragem", "liberdade", "empatia", "ética", "virtude",
-    "sucesso", "sentido", "origem", "história", "cultura", "código", "projeto", "sistema", "erro", "teste",
-    "teoria", "prática", "ideia", "missão", "desafio", "solução", "ambiente", "recurso", "trabalho", "inovação",
-    "harmonia", "confiança", "tolerância", "democracia", "igualdade", "paciência", "felicidade", "destino", "equidade", "transformar",
-    "mudança", "sabedoria", "conhecer", "intenção", "otimismo", "realidade", "espírito", "caminho", "foco", "meta",
-    "progresso", "esforço", "objetivo", "reflexão", "responsável", "respeito", "dúvida", "sintaxe", "algoritmo", "variável",
-    "função", "estrutura", "ponteiro", "memória", "compilar", "terminal", "processo", "desenho", "interface", "conexão",
-    "efêmero", "imprevisto", "genuíno", "sublime", "ancestral", "presença", "estigma", "astúcia", "audácia", "fraternidade"
+    "amor", "fato", "viÃ©s", "vocÃª", "mito", "como", "caos", "esmo", "brio", "aÃ§Ã£o",
+    "vida", "casa", "medo", "saga", "Ã´nus", "auge", "sina", "vovÃ³", "ermo", "mais",
+    "alÃ©m", "pela", "mote", "tolo", "urge", "coragem", "liberdade", "empatia", "Ã©tica", "virtude",
+    "sucesso", "sentido", "origem", "histÃ³ria", "cultura", "cÃ³digo", "projeto", "sistema", "erro", "teste",
+    "teoria", "prÃ¡tica", "ideia", "missÃ£o", "desafio", "soluÃ§Ã£o", "ambiente", "recurso", "trabalho", "inovaÃ§Ã£o",
+    "harmonia", "confianÃ§a", "tolerÃ¢ncia", "democracia", "igualdade", "paciÃªncia", "felicidade", "destino", "equidade", "transformar",
+    "mudanÃ§a", "sabedoria", "conhecer", "intenÃ§Ã£o", "otimismo", "realidade", "espÃ­rito", "caminho", "foco", "meta",
+    "progresso", "esforÃ§o", "objetivo", "reflexÃ£o", "responsÃ¡vel", "respeito", "dÃºvida", "sintaxe", "algoritmo", "variÃ¡vel",
+    "funÃ§Ã£o", "estrutura", "ponteiro", "memÃ³ria", "compilar", "terminal", "processo", "desenho", "interface", "conexÃ£o",
+    "efÃªmero", "imprevisto", "genuÃ­no", "sublime", "ancestral", "presenÃ§a", "estigma", "astÃºcia", "audÃ¡cia", "fraternidade"
 };
 
-// --- Protótipos das Funções ---
+// --- ProtÃ³tipos das FunÃ§Ãµes ---
 void inicializar_ranques(Recorde ranque[]);
 void carregar_ranques();
 void salvar_ranques();
@@ -63,13 +64,13 @@ void jogar_facil();
 void atualizar_ranque(Recorde ranque[], int nova_pontuacao, const char *modo_nome);
 void mostrar_ranque(Recorde ranque[], const char *modo);
 
-// --- Função Principal ---
+// --- FunÃ§Ã£o Principal ---
 int main() {
     srand(time(NULL));
 
-    // Configuração do NCURSES (desativada no menu para uso de I/O padrão)
+    // ConfiguraÃ§Ã£o do NCURSES (desativada no menu para uso de I/O padrÃ£o)
 
-    // Inicialização e Carregamento
+    // InicializaÃ§Ã£o e Carregamento
     inicializar_ranques(ranque_facil);
     inicializar_ranques(ranque_medio);
     inicializar_ranques(ranque_dificil);
@@ -83,7 +84,7 @@ int main() {
 }
 
 // ----------------------------------------------------------------------
-// Implementação: Gestão de Ranque (Persistência e Ordenação)
+// ImplementaÃ§Ã£o: GestÃ£o de Ranque (PersistÃªncia e OrdenaÃ§Ã£o)
 // ----------------------------------------------------------------------
 
 void inicializar_ranques(Recorde ranque[]) {
@@ -138,36 +139,36 @@ void salvar_ranques() {
 }
 
 void atualizar_ranque(Recorde ranque[], int nova_pontuacao, const char *modo_nome) {
-    // Verifica se é um Top 5
+    // Verifica se Ã© um Top 5
     if (nova_pontuacao <= ranque[MAX_RANQUE - 1].pontuacao) {
-        printf("\nVocê não entrou no Top 5 do Modo %s.\n", modo_nome);
+        printf("\nVocÃª nÃ£o entrou no Top 5 do Modo %s.\n", modo_nome);
         return;
     }
 
     // Coleta o nome
     char nome_temp[MAX_NOME];
 
-    printf("\n?? NOVO RECORDE! Você está no TOP 5 do Modo %s!\n", modo_nome);
-    printf("Digite seu nome (até 5 caracteres): ");
+    printf("\n?? NOVO RECORDE! VocÃª estÃ¡ no TOP 5 do Modo %s!\n", modo_nome);
+    printf("Digite seu nome (atÃ© 5 caracteres): ");
 
-    // Limpa o buffer de entrada do scanf anterior e lê a string
+    // Limpa o buffer de entrada do scanf anterior e lÃª a string
     int c;
     while ((c = getchar()) != '\n' && c != EOF);
 
-    // Lê o nome com fgets para controlar o tamanho
+    // LÃª o nome com fgets para controlar o tamanho
     fgets(nome_temp, MAX_NOME, stdin);
     nome_temp[strcspn(nome_temp, "\n")] = 0; // Remove a quebra de linha
 
-    // Garante que o nome tenha no máximo 5 caracteres
+    // Garante que o nome tenha no mÃ¡ximo 5 caracteres
     if (strlen(nome_temp) > 5) {
         nome_temp[5] = '\0';
     }
 
-    // Substitui o último (menor) recorde
+    // Substitui o Ãºltimo (menor) recorde
     strcpy(ranque[MAX_RANQUE - 1].nome, nome_temp);
     ranque[MAX_RANQUE - 1].pontuacao = nova_pontuacao;
 
-    // Ordenação (Bubble Sort Decrescente)
+    // OrdenaÃ§Ã£o (Bubble Sort Decrescente)
     for (int i = 0; i < MAX_RANQUE - 1; i++) {
         for (int j = 0; j < MAX_RANQUE - 1 - i; j++) {
             if (ranque[j].pontuacao < ranque[j + 1].pontuacao) {
@@ -186,7 +187,7 @@ void mostrar_ranque(Recorde ranque[], const char *modo) {
     printf("==============================\n");
     printf("?? RANQUE: MODO %s\n", modo);
     printf("==============================\n");
-    printf("Pos | Nome | Pontuação\n");
+    printf("Pos | Nome | PontuaÃ§Ã£o\n");
     printf("----|------|----------\n");
 
     for (int i = 0; i < MAX_RANQUE; i++) {
@@ -202,7 +203,7 @@ void mostrar_ranque(Recorde ranque[], const char *modo) {
 }
 
 // ----------------------------------------------------------------------
-// Implementação: Menus de Interface (usando I/O padrão)
+// ImplementaÃ§Ã£o: Menus de Interface (usando I/O padrÃ£o)
 // ----------------------------------------------------------------------
 
 void menu_principal() {
@@ -210,16 +211,16 @@ void menu_principal() {
     do {
         system("clear || cls");
         printf("==============================\n");
-        printf("??? Jogo de Digitação (Typing Game)\n");
+        printf("??? Jogo de DigitaÃ§Ã£o (Typing Game)\n");
         printf("==============================\n");
         printf("1. Jogar\n");
         printf("2. Ranque\n");
         printf("3. Sair\n");
         printf("------------------------------\n");
-        printf("Escolha a opção: ");
+        printf("Escolha a opÃ§Ã£o: ");
 
         if (scanf("%d", &escolha) != 1) {
-            escolha = 0; // Trata entrada não numérica
+            escolha = 0; // Trata entrada nÃ£o numÃ©rica
             int c;
             while ((c = getchar()) != '\n' && c != EOF);
         }
@@ -232,10 +233,10 @@ void menu_principal() {
                 menu_ranque();
                 break;
             case 3:
-                printf("\n?? Obrigado por jogar! Até a próxima.\n");
+                printf("\n?? Obrigado por jogar! AtÃ© a prÃ³xima.\n");
                 return;
             default:
-                printf("\n? Opção inválida. Pressione ENTER para continuar...");
+                printf("\n? OpÃ§Ã£o invÃ¡lida. Pressione ENTER para continuar...");
                 int c;
                 while ((c = getchar()) != '\n' && c != EOF);
                 getchar();
@@ -250,9 +251,9 @@ void menu_jogar() {
         printf("==============================\n");
         printf("?? Selecione a Dificuldade\n");
         printf("==============================\n");
-        printf("1. Fácil\n");
-        printf("2. Médio (Indisponível)\n");
-        printf("3. Difícil (Indisponível)\n");
+        printf("1. FÃ¡cil\n");
+        printf("2. MÃ©dio (IndisponÃ­vel)\n");
+        printf("3. DifÃ­cil (IndisponÃ­vel)\n");
         printf("4. Voltar\n");
         printf("------------------------------\n");
         printf("Escolha o modo: ");
@@ -275,7 +276,7 @@ void menu_jogar() {
 
                 jogar_facil();
 
-                // Encerra o ncurses após o jogo
+                // Encerra o ncurses apÃ³s o jogo
                 endwin();
                 escolha = 4;
                 break;
@@ -289,7 +290,7 @@ void menu_jogar() {
             case 4:
                 return;
             default:
-                printf("\n? Opção inválida. Pressione ENTER para continuar...");
+                printf("\n? OpÃ§Ã£o invÃ¡lida. Pressione ENTER para continuar...");
                 int c;
                 while ((c = getchar()) != '\n' && c != EOF);
                 getchar();
@@ -302,11 +303,11 @@ void menu_ranque() {
     do {
         system("clear || cls");
         printf("==============================\n");
-        printf("?? Ranque de Pontuação\n");
+        printf("?? Ranque de PontuaÃ§Ã£o\n");
         printf("==============================\n");
-        printf("1. Ranque Fácil\n");
-        printf("2. Ranque Médio\n");
-        printf("3. Ranque Difícil\n");
+        printf("1. Ranque FÃ¡cil\n");
+        printf("2. Ranque MÃ©dio\n");
+        printf("3. Ranque DifÃ­cil\n");
         printf("4. Voltar\n");
         printf("------------------------------\n");
         printf("Escolha o ranque: ");
@@ -319,18 +320,18 @@ void menu_ranque() {
 
         switch (escolha) {
             case 1:
-                mostrar_ranque(ranque_facil, "FÁCIL");
+                mostrar_ranque(ranque_facil, "FÃCIL");
                 break;
             case 2:
-                mostrar_ranque(ranque_medio, "MÉDIO");
+                mostrar_ranque(ranque_medio, "MÃ‰DIO");
                 break;
             case 3:
-                mostrar_ranque(ranque_dificil, "DIFÍCIL");
+                mostrar_ranque(ranque_dificil, "DIFÃCIL");
                 break;
             case 4:
                 return;
             default:
-                printf("\n? Opção inválida. Pressione ENTER para continuar...");
+                printf("\n? OpÃ§Ã£o invÃ¡lida. Pressione ENTER para continuar...");
                 int c;
                 while ((c = getchar()) != '\n' && c != EOF);
                 getchar();
@@ -339,7 +340,7 @@ void menu_ranque() {
 }
 
 // ----------------------------------------------------------------------
-// Implementação: Lógica de Jogo (NCURSES)
+// ImplementaÃ§Ã£o: LÃ³gica de Jogo (NCURSES)
 // ----------------------------------------------------------------------
 
 void spawn_palavra(int index, int max_x) {
@@ -349,7 +350,7 @@ void spawn_palavra(int index, int max_x) {
         palavras_ativas[index].y_pos = 1;
 
         int p_len = strlen(palavras_ativas[index].palavra);
-        // Garante que a palavra não saia da tela
+        // Garante que a palavra nÃ£o saia da tela
         palavras_ativas[index].x_pos = 1 + rand() % (max_x - p_len - 2);
 
         palavras_ativas[index].progresso = 0;
@@ -358,26 +359,26 @@ void spawn_palavra(int index, int max_x) {
 }
 
 void jogar_facil() {
-    // Variáveis de Jogo
+    // VariÃ¡veis de Jogo
     int vidas = VIDAS_INICIAIS;
     long long pontuacao = 0;
     int max_y, max_x;
     getmaxyx(stdscr, max_y, max_x);
 
-    // Variáveis de Dificuldade (Modo Fácil)
+    // VariÃ¡veis de Dificuldade (Modo FÃ¡cil)
     double tempo_queda_ms = TEMPO_BASE_QUEDA_MS;
-    // Mínimo de 9s (redução máxima de 6s, 6/15 * 625ms = 250ms. 625-250 = 375ms)
+    // MÃ­nimo de 9s (reduÃ§Ã£o mÃ¡xima de 6s, 6/15 * 625ms = 250ms. 625-250 = 375ms)
     double limite_queda_ms = TEMPO_BASE_QUEDA_MS - 250;
 
     double tempo_spawn_s = 10.0;
     int limite_spawn_s = 5;
     int palavras_simultaneas = 1;
 
-    // Variáveis de Controle de Tempo
+    // VariÃ¡veis de Controle de Tempo
     clock_t ultima_queda = clock();
     clock_t ultimo_spawn = clock();
 
-    // Variável de Entrada
+    // VariÃ¡vel de Entrada
     char buffer_entrada[50] = "";
     int buffer_len = 0;
 
@@ -409,7 +410,7 @@ void jogar_facil() {
                 if (palavras_ativas[i].ativa) {
                     palavras_ativas[i].y_pos++;
 
-                    // Condição de Perda de Vida
+                    // CondiÃ§Ã£o de Perda de Vida
                     if (palavras_ativas[i].y_pos >= max_y - 2) {
                         vidas--;
                         palavras_ativas[i].ativa = 0;
@@ -446,7 +447,7 @@ void jogar_facil() {
             }
         }
 
-        // 6. Entrada do Usuário (Non-blocking)
+        // 6. Entrada do UsuÃ¡rio (Non-blocking)
         int ch = getch();
         if (ch != ERR) {
             if (ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z') {
@@ -459,23 +460,23 @@ void jogar_facil() {
                 // Verifica o buffer contra as palavras ativas
                 for (int i = 0; i < palavras_simultaneas; i++) {
                     if (palavras_ativas[i].ativa) {
-                        // Verifica se o buffer corresponde à palavra completa
+                        // Verifica se o buffer corresponde Ã  palavra completa
                         if (strcmp(buffer_entrada, palavras_ativas[i].palavra) == 0) {
 
                             int len = strlen(palavras_ativas[i].palavra);
                             pontuacao += len * 10;
 
-                            // --------------------- REGRAS FÁCIL ---------------------
-                            // a) Queda (500 pts = -1s, máx -6s => -250ms)
+                            // --------------------- REGRAS FÃCIL ---------------------
+                            // a) Queda (500 pts = -1s, mÃ¡x -6s => -250ms)
                             if (pontuacao % 500 == 0 && tempo_queda_ms > limite_queda_ms) {
-                                tempo_queda_ms -= 41.66 * 6; // Ajuste para 1 segundo total de redução
+                                tempo_queda_ms -= 41.66 * 6; // Ajuste para 1 segundo total de reduÃ§Ã£o
                                 if (tempo_queda_ms < limite_queda_ms) tempo_queda_ms = limite_queda_ms;
                             }
-                            // b) Spawn (150 pts = -1s, máx -5s)
+                            // b) Spawn (150 pts = -1s, mÃ¡x -5s)
                             if (pontuacao % 150 == 0 && tempo_spawn_s > limite_spawn_s) {
                                 tempo_spawn_s -= 1.0;
                             }
-                            // c) Multi-palavra (após limite de spawn)
+                            // c) Multi-palavra (apÃ³s limite de spawn)
                             if (tempo_spawn_s <= limite_spawn_s && pontuacao > 0 && pontuacao % 500 == 0 && palavras_simultaneas < MAX_PALAVRAS_SIMULTANEAS) {
                                 palavras_simultaneas++;
                             }
@@ -498,7 +499,7 @@ void jogar_facil() {
                     buffer_entrada[--buffer_len] = '\0';
                 }
             } else if (ch == ' ' || ch == '\n') {
-                // Limpa o buffer ao digitar espaço ou Enter
+                // Limpa o buffer ao digitar espaÃ§o ou Enter
                 buffer_len = 0;
                 buffer_entrada[0] = '\0';
             }
@@ -510,19 +511,19 @@ void jogar_facil() {
     }
     // --- Fim do Loop do Jogo ---
 
-    // Exibição de Fim de Jogo
+    // ExibiÃ§Ã£o de Fim de Jogo
     erase();
     mvprintw(max_y / 2 - 2, max_x / 2 - 10, "============================");
     mvprintw(max_y / 2 - 1, max_x / 2 - 10, "        FIM DE JOGO!        ");
     mvprintw(max_y / 2, max_x / 2 - 10, "============================");
-    mvprintw(max_y / 2 + 1, max_x / 2 - 10, "Pontuação Final: %lld", pontuacao);
+    mvprintw(max_y / 2 + 1, max_x / 2 - 10, "PontuaÃ§Ã£o Final: %lld", pontuacao);
 
     refresh();
     sleep(2);
 
-    // Atualiza o Ranque (passando a pontuação)
-    endwin(); // Encerra ncurses temporariamente para usar I/O padrão
-    atualizar_ranque(ranque_facil, (int)pontuacao, "FÁCIL");
+    // Atualiza o Ranque (passando a pontuaÃ§Ã£o)
+    endwin(); // Encerra ncurses temporariamente para usar I/O padrÃ£o
+    atualizar_ranque(ranque_facil, (int)pontuacao, "FÃCIL");
 
     printf("\nPressione ENTER para voltar ao menu...");
 
@@ -531,4 +532,5 @@ void jogar_facil() {
     while ((c = getchar()) != '\n' && c != EOF);
     getchar(); // Espera o ENTER final
 }
+
 
